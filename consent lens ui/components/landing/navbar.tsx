@@ -12,7 +12,8 @@ export function Navbar() {
   useEffect(() => {
     const checkBackend = async () => {
       try {
-        const res = await fetch("http://127.0.0.1:8000/");
+        const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://127.0.0.1:8000";
+        const res = await fetch(backendUrl);
         if (res.ok || res.status === 404) {
           // 404 is fine as long as the server responds
           setBackendOnline(true);
@@ -53,10 +54,10 @@ export function Navbar() {
             <div className="flex items-center gap-1.5">
               <div
                 className={`h-1.5 w-1.5 rounded-full ${backendOnline === true
-                    ? "bg-accent shadow-[0_0_8px_rgba(45,212,191,0.5)]"
-                    : backendOnline === false
-                      ? "bg-destructive"
-                      : "bg-muted-foreground/30"
+                  ? "bg-accent shadow-[0_0_8px_rgba(45,212,191,0.5)]"
+                  : backendOnline === false
+                    ? "bg-destructive"
+                    : "bg-muted-foreground/30"
                   }`}
               />
               <span className="text-[10px] text-muted-foreground uppercase tracking-wider">
