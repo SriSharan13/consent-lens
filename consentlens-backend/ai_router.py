@@ -10,11 +10,13 @@ def analyze_policy_with_ai(text: str):
 
         # Validate required keys
         required_keys = [
-            "data_collection",
-            "third_party_sharing",
-            "retention_policy",
-            "security_measures",
-            "dark_patterns_detected",
+            "categories",
+            "impact_translations",
+            "safety_score",
+            "risky_clauses",
+            "what_if_simulator",
+            "dark_patterns",
+            "personalized_advice",
             "reasons"
         ]
 

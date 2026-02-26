@@ -40,17 +40,8 @@ def analyze_policy(policy: dict = Body(...)):
 
     ai_result = analyze_policy_with_ai(text)
 
-    score = 100
-    risk_map = {"low": 0, "medium": 15, "high": 30}
-
-    score -= risk_map.get(ai_result["data_collection"], 0)
-    score -= risk_map.get(ai_result["third_party_sharing"], 0)
-    score -= risk_map.get(ai_result["retention_policy"], 0)
-    score -= risk_map.get(ai_result["security_measures"], 0)
-
-    if ai_result["dark_patterns_detected"]:
-        score -= 20
-
+    # Use AI provided safety score or fallback to 100
+    score = ai_result.get("safety_score", 100)
     score = max(0, min(score, 100))
 
     if score >= 70:
@@ -68,13 +59,15 @@ def analyze_policy(policy: dict = Body(...)):
                 "site_url": site_url,
                 "risk_score": score,
                 "decision": decision,
-                "reasons": ai_result["reasons"]
+                "reasons": ai_result.get("reasons", [])
             }).execute()
         except Exception as e:
             print("Supabase Error:", str(e))
 
-    return {
+    # Return full rich result for extension/UI to consume
+    response = {
         "score": score,
         "decision": decision,
-        "reasons": ai_result["reasons"]
+        **ai_result
     }
+    return response

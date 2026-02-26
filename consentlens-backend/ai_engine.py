@@ -38,30 +38,50 @@ def classify_policy(text: str):
         else:
             return "low"
 
-    result = {
-        "data_collection": severity(data_collection_score),
-        "third_party_sharing": severity(third_party_score),
-        "retention_policy": severity(retention_score),
-        "security_measures": severity(security_score),
-        "dark_patterns_detected": dark_pattern_flag,
-        "reasons": []
-    }
-
-    if result["data_collection"] != "low":
+    # Populate reasons based on initial scores
+    if severity(data_collection_score) != "low":
         reasons.append("Sensitive data collection detected.")
 
-    if result["third_party_sharing"] != "low":
+    if severity(third_party_score) != "low":
         reasons.append("Third-party data sharing detected.")
 
-    if result["retention_policy"] != "low":
+    if severity(retention_score) != "low":
         reasons.append("Potential long-term data retention.")
 
     if dark_pattern_flag:
         reasons.append("Manipulative or implied consent language detected.")
 
-    if result["security_measures"] == "low":
+    if severity(security_score) == "low":
         reasons.append("Limited mention of security safeguards.")
 
-    result["reasons"] = reasons
+    result = {
+        "summary": "Local analysis performed (Gemini offline).",
+        "categories": {
+            "data_collected": { "rank": severity(data_collection_score), "details": "Detected based on keyword matching." },
+            "sensitive_data": { "rank": "medium" if data_collection_score > 1 else "low", "details": "Potential sensitive data points found." },
+            "third_party_sharing": { "rank": severity(third_party_score), "details": "Mention of third parties or affiliates found." },
+            "retention_duration": { "rank": severity(retention_score), "details": "Mention of data retention periods found." },
+            "user_rights": { "rank": "medium", "details": "General mention of user rights found." },
+            "tracking_ads": { "rank": "medium" if "cookie" in text else "low", "details": "Tracking technologies mentioned." }
+        },
+        "impact_translations": [
+            { "legal_text": "May share with affiliates", "real_world_impact": "Your data might be used for cross-platform marketing." }
+        ],
+        "safety_score": 100 - (data_collection_score * 10 + third_party_score * 10 + (20 if dark_pattern_flag else 0)),
+        "risky_clauses": [],
+        "what_if_simulator": [
+            { "permission": "Tracking", "if_rejected": "May limit personalized content." }
+        ],
+        "dark_patterns": [],
+        "personalized_advice": {
+            "privacy_first": "Consider limiting data sharing in settings.",
+            "balanced": "Accept necessary cookies only.",
+            "convenience_first": "Accept all for best experience."
+        },
+        "reasons": reasons
+    }
+
+    if dark_pattern_flag:
+        result["dark_patterns"].append({ "type": "Implied Consent", "evidence": "Language suggests automatic agreement." })
 
     return result

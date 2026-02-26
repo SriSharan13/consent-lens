@@ -5,7 +5,13 @@ async function analyzePage(userId = null, siteUrl = "Unknown Site") {
     if (consentLensTriggered) return;
     consentLensTriggered = true;
 
-    const policyUrl = findPrivacyPolicyLink();
+    let policyUrl = window.location.href;
+    const isPolicyPage = window.location.pathname.toLowerCase().includes("privacy") ||
+        document.title.toLowerCase().includes("privacy");
+
+    if (!isPolicyPage) {
+        policyUrl = findPrivacyPolicyLink();
+    }
 
     if (!policyUrl) {
         console.log("No privacy policy link found.");
@@ -13,282 +19,210 @@ async function analyzePage(userId = null, siteUrl = "Unknown Site") {
         return;
     }
 
+    // If we are already on the policy page, we can extract text directly
+    if (window.location.href === policyUrl) {
+        const pageText = document.body.innerText;
+        await processAnalysis(pageText, userId, siteUrl);
+        return;
+    }
 
-    // Ask background script to fetch policy (bypass CORS)
+    // Otherwise, fetch from the link
     chrome.runtime.sendMessage(
         { action: "fetchPolicy", url: policyUrl },
         async function (response) {
-
             if (!response || !response.success) {
                 console.error("Policy fetch failed:", response?.error);
                 consentLensTriggered = false;
                 return;
             }
-
-            const policyText = response.text;
-            if (!policyText || policyText.length < 100) {
-                console.log("Policy text too small, skipping analysis.");
-                consentLensTriggered = false;
-                return;
-            }
-
-
-            // Send policy text to backend
-            const backendResponse = await fetch("http://127.0.0.1:8000/analyze", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    text: policyText.slice(0, 5000),
-                    user_id: userId,
-                    site_url: siteUrl
-                })
-            });
-
-            const data = await backendResponse.json();
-            console.log("Backend response:", data);
-            showOverlay(data.score, data.decision, data.reasons);
+            await processAnalysis(response.text, userId, siteUrl);
         }
     );
 }
 
+async function processAnalysis(policyText, userId, siteUrl) {
+    if (!policyText || policyText.length < 100) {
+        console.log("Policy text too small, skipping analysis.");
+        consentLensTriggered = false;
+        return;
+    }
 
-function showOverlay(score, decision, reasons) {
+    // Send policy text to backend
+    const backendResponse = await fetch("http://127.0.0.1:8000/analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+            text: policyText.slice(0, 10000), // Increased context for better analysis
+            user_id: userId,
+            site_url: siteUrl
+        })
+    });
 
-    if (document.getElementById("consentlens-overlay")) return;
+    const data = await backendResponse.json();
+    console.log("Backend response:", data);
+    showOverlay(data);
+}
+
+
+function showOverlay(data) {
+    const { score, decision, categories, impact_translations, risky_clauses, what_if_simulator, dark_patterns, personalized_advice, reasons, summary } = data;
+
+    if (document.getElementById("consentlens-overlay")) {
+        document.getElementById("consentlens-overlay").remove();
+    }
 
     const overlay = document.createElement("div");
     overlay.id = "consentlens-overlay";
 
-    const reasonsHTML = reasons && reasons.length
-        ? reasons.map(r => `<li>${r}</li>`).join("")
-        : "<li>No major risks detected</li>";
+    const categoriesHTML = Object.entries(categories || {}).map(([key, val]) => `
+        <div class="cl-category-item">
+            <span class="cl-cat-label">${key.replace(/_/g, ' ')}</span>
+            <span class="cl-cat-rank cl-rank-${val.rank}">${val.rank}</span>
+            <div class="cl-cat-details">${val.details}</div>
+        </div>
+    `).join("");
+
+    const impactsHTML = (impact_translations || []).slice(0, 2).map(imp => `
+        <div class="cl-impact-box">
+            <div class="cl-impact-legal">"${imp.legal_text.substring(0, 60)}..."</div>
+            <div class="cl-impact-real">➜ ${imp.real_world_impact}</div>
+        </div>
+    `).join("");
+
+    const clausesHTML = (risky_clauses || []).slice(0, 2).map(c => `
+        <div class="cl-risky-clause">
+            <div class="cl-clause-text">🚨 "${c.clause.substring(0, 100)}..."</div>
+            <div class="cl-clause-evidence">${c.evidence}</div>
+        </div>
+    `).join("");
+
+    const simulatorHTML = (what_if_simulator || []).slice(0, 3).map(s => `
+        <div class="cl-sim-row">
+            <span class="cl-sim-perm">${s.permission}</span>
+            <span class="cl-sim-impact">🚫 ${s.if_rejected}</span>
+        </div>
+    `).join("");
+
+    const darkPatternsHTML = (dark_patterns || []).map(dp => `
+        <div class="cl-dark-pattern">
+            ⚠️ <strong>${dp.type}:</strong> ${dp.evidence}
+        </div>
+    `).join("");
 
     overlay.innerHTML = `
         <style>
-            @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700&display=swap');
+            @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap');
 
             #consentlens-card {
                 position: fixed;
-                bottom: -600px;
-                right: 30px;
-                width: 380px;
-                font-family: 'Outfit', 'Segoe UI', sans-serif;
-                background: rgba(13, 13, 18, 0.7);
-                backdrop-filter: blur(24px) saturate(180%);
-                -webkit-backdrop-filter: blur(24px) saturate(180%);
-                border: 1px solid rgba(255, 255, 255, 0.08);
-                border-radius: 28px;
-                color: #ffffff;
-                z-index: 2147483647;
-                transition: all 0.6s cubic-bezier(0.16, 1, 0.3, 1);
-                box-shadow: 
-                    0 20px 50px rgba(0, 0, 0, 0.5),
-                    0 0 40px rgba(124, 92, 255, 0.15),
-                    inset 0 0 0 1px rgba(255, 255, 255, 0.05);
-                padding: 0;
-                overflow: hidden;
-            }
-
-            .cl-header {
-                padding: 20px 24px;
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-                background: linear-gradient(to bottom, rgba(255,255,255,0.03), transparent);
-                border-bottom: 1px solid rgba(255,255,255,0.05);
-            }
-
-            .cl-logo-group {
-                display: flex;
-                align-items: center;
-                gap: 10px;
-            }
-
-            .cl-logo {
-                width: 32px;
-                height: 32px;
-                background: linear-gradient(135deg, #7c5cff, #00ffd5);
-                border-radius: 10px;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                box-shadow: 0 4px 12px rgba(124, 92, 255, 0.3);
-            }
-
-            .cl-title {
-                font-size: 16px;
-                font-weight: 700;
-                letter-spacing: -0.02em;
-                background: linear-gradient(90deg, #fff, rgba(255,255,255,0.7));
-                -webkit-background-clip: text;
-                -webkit-text-fill-color: transparent;
-            }
-
-            #close-consentlens {
-                width: 32px;
-                height: 32px;
-                border-radius: 10px;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                background: rgba(255,255,255,0.05);
-                border: 1px solid rgba(255,255,255,0.1);
-                color: #888;
-                cursor: pointer;
-                transition: all 0.2s;
-                font-size: 18px;
-            }
-
-            #close-consentlens:hover {
-                background: rgba(255,255,255,0.1);
+                top: 20px;
+                right: 20px;
+                width: 420px;
+                max-height: calc(100vh - 40px);
+                font-family: 'Outfit', sans-serif;
+                background: #0a0a0f;
+                border: 1px solid rgba(255, 255, 255, 0.1);
+                border-radius: 24px;
                 color: #fff;
-                transform: rotate(90deg);
+                z-index: 2147483647;
+                box-shadow: 0 30px 60px rgba(0,0,0,0.8), 0 0 40px rgba(124, 92, 255, 0.2);
+                overflow-y: auto;
+                scrollbar-width: none;
+                animation: slideIn 0.5s cubic-bezier(0.16, 1, 0.3, 1);
             }
 
-            .cl-content {
-                padding: 24px;
-            }
+            @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
 
-            .cl-score-ring {
-                position: relative;
-                width: 140px;
-                height: 140px;
-                margin: 0 auto 20px;
-                display: flex;
-                flex-direction: column;
-                align-items: center;
-                justify-content: center;
-            }
+            .cl-header { padding: 20px; border-bottom: 1px solid rgba(255,255,255,0.05); display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; background: #0a0a0f; z-index: 10; }
+            .cl-logo-group { display: flex; align-items: center; gap: 10px; }
+            .cl-logo { width: 32px; height: 32px; background: linear-gradient(135deg, #7c5cff, #00ffd5); border-radius: 8px; display: flex; align-items: center; justify-content: center; }
+            .cl-title { font-weight: 700; font-size: 18px; letter-spacing: -0.5px; }
+            
+            #close-cl { background: none; border: none; color: #555; cursor: pointer; font-size: 24px; }
+            #close-cl:hover { color: #fff; }
 
-            #consent-score-value {
-                font-size: 48px;
-                font-weight: 700;
-                line-height: 1;
-                margin-top: 5px;
-            }
+            .cl-content { padding: 20px; }
+            .cl-summary { font-size: 13px; color: #aaa; margin-bottom: 20px; line-height: 1.5; }
 
-            .cl-score-label {
-                font-size: 10px;
-                font-weight: 700;
-                text-transform: uppercase;
-                letter-spacing: 0.1em;
-                color: rgba(255,255,255,0.4);
-            }
+            .cl-main-score { display: flex; align-items: center; gap: 20px; background: rgba(255,255,255,0.03); padding: 20px; border-radius: 20px; margin-bottom: 20px; border: 1px solid rgba(255,255,255,0.05); }
+            .cl-score-circle { width: 70px; height: 70px; border-radius: 50%; border: 4px solid #7c5cff; display: flex; items-center: center; justify-content: center; font-size: 24px; font-weight: 700; color: #7c5cff; }
+            .cl-recommendation { flex: 1; }
+            .cl-rec-label { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: #666; font-weight: 700; }
+            .cl-rec-value { font-size: 18px; font-weight: 700; color: ${score >= 70 ? '#00ffd5' : score >= 40 ? '#f1c40f' : '#ff4d4d'}; }
 
-            .cl-analysis-box {
-                background: rgba(255,255,255,0.03);
-                border: 1px solid rgba(255,255,255,0.05);
-                border-radius: 20px;
-                padding: 20px;
-                margin-top: 24px;
-            }
+            .cl-section-title { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #7c5cff; margin: 25px 0 12px; display: flex; align-items: center; gap: 8px; }
+            .cl-section-title::after { content: ''; flex: 1; height: 1px; background: rgba(124, 92, 255, 0.2); }
 
-            .cl-decision-row {
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-                margin-bottom: 16px;
-            }
+            .cl-categories { grid-template-columns: 1fr 1fr; display: grid; gap: 10px; }
+            .cl-category-item { background: rgba(255,255,255,0.02); padding: 12px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.05); }
+            .cl-cat-label { font-size: 10px; color: #888; text-transform: capitalize; display: block; margin-bottom: 4px; }
+            .cl-cat-rank { font-size: 10px; font-weight: 700; text-transform: uppercase; padding: 2px 6px; border-radius: 4px; }
+            .cl-rank-low { background: rgba(0,255,213,0.1); color: #00ffd5; }
+            .cl-rank-medium { background: rgba(241,196,15,0.1); color: #f1c40f; }
+            .cl-rank-high { background: rgba(255,77,77,0.1); color: #ff4d4d; }
+            .cl-cat-details { font-size: 10px; color: #555; margin-top: 5px; line-height: 1.3; }
 
-            .cl-decision-label {
-                font-size: 11px;
-                font-weight: 600;
-                color: rgba(255,255,255,0.5);
-                text-transform: uppercase;
-                letter-spacing: 0.05em;
-            }
+            .cl-impact-box { background: rgba(124, 92, 255, 0.05); padding: 12px; border-radius: 12px; margin-bottom: 8px; border-left: 3px solid #7c5cff; }
+            .cl-impact-legal { font-size: 11px; color: #777; font-style: italic; margin-bottom: 4px; }
+            .cl-impact-real { font-size: 12px; font-weight: 600; color: #fff; }
 
-            .cl-decision-badge {
-                padding: 4px 12px;
-                border-radius: 8px;
-                font-size: 11px;
-                font-weight: 700;
-                text-transform: uppercase;
-                letter-spacing: 0.02em;
-                background: rgba(0, 255, 213, 0.1);
-                border: 1px solid rgba(0, 255, 213, 0.2);
-                color: #00ffd5;
-            }
+            .cl-risky-clause { background: rgba(255,77,77,0.05); padding: 12px; border-radius: 12px; margin-bottom: 8px; border-left: 3px solid #ff4d4d; }
+            .cl-clause-text { font-size: 11px; font-weight: 600; margin-bottom: 4px; color: #ffbbbb; }
+            .cl-clause-evidence { font-size: 10px; color: #888; }
 
-            .cl-why-title {
-                font-size: 12px;
-                font-weight: 600;
-                margin-bottom: 10px;
-                display: flex;
-                align-items: center;
-                gap: 8px;
-            }
+            .cl-sim-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.03); }
+            .cl-sim-perm { font-size: 12px; font-weight: 600; }
+            .cl-sim-impact { font-size: 11px; color: #aaa; }
 
-            .cl-reasons {
-                list-style: none !important;
-                padding: 0 !important;
-                margin: 0 !important;
-            }
+            .cl-dark-pattern { font-size: 11px; color: #ff9f43; background: rgba(255,159,67,0.1); padding: 10px; border-radius: 10px; margin-top: 10px; }
 
-            .cl-reasons li {
-                font-size: 12px;
-                color: rgba(255,255,255,0.6);
-                margin-bottom: 8px;
-                padding-left: 18px;
-                position: relative;
-                line-height: 1.4;
-            }
-
-            .cl-reasons li::before {
-                content: '';
-                position: absolute;
-                left: 0;
-                top: 7px;
-                width: 4px;
-                height: 4px;
-                border-radius: 50%;
-                background: #7c5cff;
-                box-shadow: 0 0 8px #7c5cff;
-            }
-
-            svg.cl-progress-ring {
-                position: absolute;
-                top: 0;
-                left: 0;
-                transform: rotate(-90deg);
-            }
+            .cl-advice-tabs { display: flex; gap: 5px; margin-top: 10px; }
+            .cl-advice-card { background: rgba(255,255,255,0.03); padding: 15px; border-radius: 15px; margin-top: 10px; font-size: 12px; line-height: 1.5; color: #ccc; }
+            .cl-advice-profile { color: #00ffd5; font-weight: 700; margin-bottom: 5px; display: block; }
         </style>
 
         <div id="consentlens-card">
             <div class="cl-header">
                 <div class="cl-logo-group">
                     <div class="cl-logo">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
-                            <path d="M9 12l2 2 4-4"></path>
-                        </svg>
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10zM9 12l2 2 4-4"/></svg>
                     </div>
-                    <span class="cl-title">ConsentLens</span>
+                    <span class="cl-title">ConsentLens 2.0</span>
                 </div>
-                <button id="close-consentlens">×</button>
+                <button id="close-cl">×</button>
             </div>
 
             <div class="cl-content">
-                <div class="cl-score-ring">
-                    <svg class="cl-progress-ring" width="140" height="140">
-                        <circle stroke="rgba(255,255,255,0.05)" stroke-width="8" fill="transparent" r="62" cx="70" cy="70"/>
-                        <circle id="cl-progress-bar" stroke="#00ffd5" stroke-width="8" stroke-dasharray="389.5" stroke-dashoffset="389.5" stroke-linecap="round" fill="transparent" r="62" cx="70" cy="70" style="filter: drop-shadow(0 0 8px rgba(0, 255, 213, 0.4)); transition: stroke-dashoffset 1s ease;"/>
-                    </svg>
-                    <span class="cl-score-label">Risk Score</span>
-                    <span id="consent-score-value">0</span>
+                <div class="cl-summary">${summary || "Analysis complete. View detailed impact below."}</div>
+
+                <div class="cl-main-score">
+                    <div class="cl-score-circle" style="border-color: ${score >= 70 ? '#00ffd5' : score >= 40 ? '#f1c40f' : '#ff4d4d'}; color: ${score >= 70 ? '#00ffd5' : score >= 40 ? '#f1c40f' : '#ff4d4d'};">
+                        ${score}
+                    </div>
+                    <div class="cl-recommendation">
+                        <div class="cl-rec-label">Consent Safety Score</div>
+                        <div class="cl-rec-value">${decision}</div>
+                    </div>
                 </div>
 
-                <div class="cl-analysis-box">
-                    <div class="cl-decision-row">
-                        <span class="cl-decision-label">AI Decision</span>
-                        <span class="cl-decision-badge" id="cl-badge">${decision}</span>
-                    </div>
-                    
-                    <div class="cl-why-title">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#7c5cff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
-                        Analysis Details
-                    </div>
-                    <ul class="cl-reasons">${reasonsHTML}</ul>
+                <div class="cl-section-title">Policy Categories</div>
+                <div class="cl-categories">${categoriesHTML}</div>
+
+                <div class="cl-section-title">Impact Translation</div>
+                ${impactsHTML}
+
+                <div class="cl-section-title">Risky Clauses</div>
+                ${clausesHTML}
+
+                <div class="cl-section-title">What-If Simulator</div>
+                <div class="cl-simulator-box">${simulatorHTML}</div>
+
+                ${dark_patterns && dark_patterns.length ? '<div class="cl-section-title">Dark Patterns</div>' + darkPatternsHTML : ''}
+
+                <div class="cl-section-title">Personalized Advice</div>
+                <div class="cl-advice-card">
+                    <span class="cl-advice-profile">🛡️ Privacy-First Recommendation</span>
+                    ${personalized_advice?.privacy_first || "Avoid optional data sharing."}
                 </div>
             </div>
         </div>
@@ -296,45 +230,10 @@ function showOverlay(score, decision, reasons) {
 
     document.body.appendChild(overlay);
 
-    setTimeout(() => {
-        const card = document.getElementById("consentlens-card");
-        if (card) card.style.bottom = "30px";
-    }, 50);
-
-    document.getElementById("close-consentlens").addEventListener("click", () => {
+    document.getElementById("close-cl").addEventListener("click", () => {
         overlay.remove();
         consentLensTriggered = false;
     });
-
-    let currentScore = 0;
-    const scoreElement = document.getElementById("consent-score-value");
-    const progressBar = document.getElementById("cl-progress-bar");
-    const circum = 2 * Math.PI * 62;
-
-    const scoreInterval = setInterval(() => {
-        if (currentScore >= score) {
-            clearInterval(scoreInterval);
-        } else {
-            currentScore++;
-            if (scoreElement) scoreElement.textContent = currentScore;
-        }
-    }, 10);
-
-    setTimeout(() => {
-        if (progressBar) {
-            const offset = circum - (score / 100) * circum;
-            progressBar.style.strokeDashoffset = offset;
-
-            // Color based on score
-            if (score >= 70) {
-                progressBar.style.stroke = "#00ffd5";
-            } else if (score >= 40) {
-                progressBar.style.stroke = "#f1c40f";
-            } else {
-                progressBar.style.stroke = "#ff4d4d";
-            }
-        }
-    }, 300);
 }
 
 
