@@ -1,0 +1,33 @@
+# Dependencies
+**/node_modules/
+**/pnpm-lock.yaml
+**/package-lock.json
+
+# Next.js
+**/.next/
+**/out/
+
+# Environment Variables (CRITICAL: Do not push keys)
+**/.env
+**/.env.local
+**/.env.development.local
+**/.env.test.local
+**/.env.production.local
+**/.env.local
+
+# Python
+**/__pycache__/
+**/*.py[cod]
+**/*$py.class
+**/.pytest_cache/
+**/venv/
+**/.venv/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Build files
+**/dist/
+**/*.exe
+**/*.bin
