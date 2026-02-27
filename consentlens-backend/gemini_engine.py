@@ -17,6 +17,13 @@ Analyze the provided privacy policy and return a detailed, structured JSON respo
 Required JSON Structure:
 {{
   "summary": "Short 2-sentence overview",
+  "is_financial_product": boolean,
+  "autopay_detected": boolean,
+  "financial_terms": {{
+    "apr": "e.g. 24.99%",
+    "annual_fee": "e.g. $95",
+    "late_fee": "e.g. $40"
+  }},
   "categories": {{
     "data_collected": {{ "rank": "low/medium/high", "details": "what they collect" }},
     "sensitive_data": {{ "rank": "low/medium/high", "details": "location, biometrics, etc" }},
@@ -43,8 +50,15 @@ Required JSON Structure:
     "balanced": "advice for average users",
     "convenience_first": "advice for users who just want it to work"
   }},
-  "reasons": ["top 3 summary points for quick reading"]
+  "reasons": ["top 3 summary points - if financial, mention APR and Fees here"]
 }}
+
+Special Instructions:
+1. Detect if this is a Credit Card Agreement or a Subscription Service.
+2. If Credit Card: Extract APR, Annual Fees, and Late Fees.
+3. If Subscription/Auto-pay: Identify if 'automatic renewal' or 'automatic billing' is mentioned. Set "autopay_detected" to true.
+4. Adjust safety_score: Deduct points for high APR (>25%), hidden annual fees, or aggressive auto-renewal terms.
+
 
 Privacy Policy Text:
 {text[:4000]}

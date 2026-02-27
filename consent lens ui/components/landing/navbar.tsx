@@ -83,12 +83,7 @@ export function Navbar() {
           >
             How it Works
           </Link>
-          <Link
-            href="#dashboard"
-            className="text-[13px] text-muted-foreground transition-colors duration-300 hover:text-foreground"
-          >
-            Dashboard
-          </Link>
+
         </div>
 
         <div className="flex items-center gap-3">

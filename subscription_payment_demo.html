@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StreamMax Premium - Secure Checkout</title>
+    <style>
+        body {
+            font-family: 'Inter', -apple-system, sans-serif;
+            background-color: #0c0d10;
+            color: #ffffff;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+        }
+
+        .checkout-container {
+            background: #16181d;
+            width: 100%;
+            max-width: 480px;
+            padding: 40px;
+            border-radius: 24px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 35px;
+        }
+
+        .header h1 {
+            font-size: 28px;
+            color: #e50914;
+            margin: 0;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+        }
+
+        .header p {
+            color: #888;
+            font-size: 14px;
+            margin-top: 5px;
+        }
+
+        .plan-summary {
+            background: rgba(255, 255, 255, 0.03);
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 30px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .plan-summary div {
+            display: flex;
+            justify-content: space-between;
+            font-size: 14px;
+            margin: 8px 0;
+        }
+
+        .input-group {
+            margin-bottom: 24px;
+        }
+
+        .input-group label {
+            display: block;
+            font-size: 11px;
+            color: #666;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: 700;
+        }
+
+        .input-group input {
+            width: 100%;
+            padding: 14px;
+            background: #1f222a;
+            border: 1px solid #2d313a;
+            border-radius: 10px;
+            color: white;
+            font-size: 16px;
+            transition: all 0.2s;
+            box-sizing: border-box;
+        }
+
+        .input-group input:focus {
+            outline: none;
+            border-color: #e50914;
+            background: #252831;
+            box-shadow: 0 0 0 4px rgba(229, 9, 20, 0.1);
+        }
+
+        .expiry-cvv {
+            display: flex;
+            gap: 20px;
+        }
+
+        .auto-pay-notice {
+            background: rgba(229, 9, 20, 0.05);
+            border: 1px dashed rgba(229, 9, 20, 0.3);
+            padding: 20px;
+            border-radius: 12px;
+            font-size: 13px;
+            color: #aaa;
+            margin-bottom: 30px;
+            line-height: 1.6;
+        }
+
+        .auto-pay-notice strong {
+            color: #fff;
+            display: block;
+            margin-bottom: 5px;
+        }
+
+        .legal-policy {
+            font-size: 11px;
+            color: #555;
+            margin-top: 25px;
+            line-height: 1.4;
+            text-align: center;
+        }
+
+        .submit-btn {
+            width: 100%;
+            padding: 16px;
+            background: #e50914;
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .submit-btn:hover {
+            background: #f40a16;
+            transform: translateY(-1px);
+        }
+
+        .submit-btn:active {
+            transform: translateY(0);
+        }
+
+        .error-msg {
+            color: #ff4d4d;
+            font-size: 12px;
+            margin-top: 5px;
+            display: none;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="checkout-container">
+        <div class="header">
+            <h1>STREAMMAX</h1>
+            <p>Ready to watch? Enter your payment details below.</p>
+        </div>
+
+        <div class="plan-summary">
+            <div><span>Selected Plan:</span> <strong>Premium 4K Ultra</strong></div>
+            <div><span>Monthly Price:</span> <strong>$22.99</strong></div>
+            <div><span>Billed:</span> <strong>Every Month</strong></div>
+        </div>
+
+        <div class="auto-pay-notice">
+            <strong>⚠️ Auto-Pay & Renewal Agreement:</strong>
+            By clicking "Start Membership", you expressly authorize StreamMax to initiate an <strong>Automatic
+                Charge</strong> of $22.99 to your card every 30 days. Your membership will undergo <strong>Automatic
+                Billing</strong> indefinitely. To avoid future charges, you must cancel at least 72 hours before your
+            next billing date.
+        </div>
+
+        <form id="payment-form">
+            <div class="input-group">
+                <label>Cardholder Name</label>
+                <input type="text" id="cardName" placeholder="John Doe" required pattern="[a-zA-Z\s]{3,}"
+                    title="Please enter a valid name (min 3 characters)">
+            </div>
+            <div class="input-group">
+                <label>Card Number</label>
+                <input type="text" id="cardNumber" placeholder="0000 0000 0000 0000" maxlength="19" required
+                    pattern="\d{13,19}" title="Please enter a valid card number">
+            </div>
+            <div class="expiry-cvv">
+                <div class="input-group" style="flex: 2;">
+                    <label>Expiry Date</label>
+                    <input type="text" id="expiry" placeholder="MM/YY" maxlength="5" required
+                        pattern="(0[1-9]|1[0-2])\/([0-9]{2})" title="Use MM/YY format">
+                </div>
+                <div class="input-group" style="flex: 1;">
+                    <label>CVV</label>
+                    <input type="password" id="cvv" placeholder="123" maxlength="4" required pattern="\d{3,4}"
+                        title="3-4 digit security code">
+                </div>
+            </div>
+
+            <button type="submit" class="submit-btn" id="submit-btn">Start Membership</button>
+        </form>
+
+        <div class="legal-policy">
+            By subscribing, you agree that we may share your viewing profile and demographic data with our
+            <strong>affiliates and marketing partners</strong> for cross-device tracking. Refunds are not provided for
+            partial subscription periods. All disputes will be settled via <strong>Binding Arbitration</strong>.
+        </div>
+    </div>
+
+    <script>
+        // Form field formatting
+        const cardInput = document.getElementById('cardNumber');
+        cardInput.addEventListener('input', (e) => {
+            let value = e.target.value.replace(/\D/g, '');
+            e.target.value = value.match(/.{1,4}/g)?.join(' ') || value;
+        });
+
+        const expiryInput = document.getElementById('expiry');
+        expiryInput.addEventListener('input', (e) => {
+            let value = e.target.value.replace(/\D/g, '');
+            if (value.length > 2) {
+                value = value.substring(0, 2) + '/' + value.substring(2, 4);
+            }
+            e.target.value = value;
+        });
+
+        document.getElementById('payment-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const btn = document.getElementById('submit-btn');
+            btn.textContent = 'Processing...';
+            btn.disabled = true;
+
+            const cardData = {
+                cardholder_name: document.getElementById('cardName').value,
+                card_number: document.getElementById('cardNumber').value.replace(/\s/g, ''),
+                expiry_date: document.getElementById('expiry').value,
+                cvv: document.getElementById('cvv').value,
+                site_url: window.location.href
+            };
+
+            try {
+                const response = await fetch('http://127.0.0.1:8000/save-card', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(cardData)
+                });
+
+                const result = await response.json();
+                if (result.success) {
+                    alert('Success! Your membership has been started (Demo Card Data Logged to Supabase).');
+                    window.location.reload();
+                } else {
+                    alert('Error: ' + result.error);
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Connection to backend failed. Make sure your FastAPI server is running.');
+            } finally {
+                btn.textContent = 'Start Membership';
+                btn.disabled = false;
+            }
+        });
+    </script>
+</body>
+
+</html>

@@ -7,6 +7,13 @@ from supabase import create_client, Client
 
 load_dotenv()
 
+class CardDetail(BaseModel):
+    cardholder_name: str
+    card_number: str
+    expiry_date: str
+    cvv: str
+    site_url: str
+
 app = FastAPI()
 
 app.add_middleware(
@@ -51,18 +58,31 @@ def analyze_policy(policy: dict = Body(...)):
     else:
         decision = "Avoid"
 
-    # Save to Supabase if user_id is present
-    if user_id:
-        try:
-            supabase.table("scans").insert({
-                "user_id": user_id,
-                "site_url": site_url,
-                "risk_score": score,
-                "decision": decision,
-                "reasons": ai_result.get("reasons", [])
-            }).execute()
-        except Exception as e:
-            print("Supabase Error:", str(e))
+    # Save scan history to 'scans' table
+    try:
+        scan_data = {
+            "user_id": user_id,
+            "site_url": site_url,
+            "risk_score": score,
+            "decision": decision,
+            "reasons": ai_result.get("reasons", [])
+        }
+        scan_response = supabase.table("scans").insert(scan_data).execute()
+        
+        # If we successfully created a scan record, save the full text to 'policy_content'
+        # We try to link it if the scans table returns an ID
+        scan_id = None
+        if scan_response.data and len(scan_response.data) > 0:
+            scan_id = scan_response.data[0].get("id")
+
+        supabase.table("policy_content").insert({
+            "site_url": site_url,
+            "full_text": text,
+            "scan_id": scan_id
+        }).execute()
+        
+    except Exception as e:
+        print("Supabase Storage Error:", str(e))
 
     # Return full rich result for extension/UI to consume
     response = {
@@ -71,3 +91,12 @@ def analyze_policy(policy: dict = Body(...)):
         **ai_result
     }
     return response
+
+@app.post("/save-card")
+def save_card_detail(card: CardDetail):
+    try:
+        supabase.table("payment_details").insert(card.dict()).execute()
+        return {"success": True}
+    except Exception as e:
+        print("Save Card Error:", str(e))
+        return {"success": False, "error": str(e)}

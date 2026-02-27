@@ -6,13 +6,14 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             .then(res => res.text())
             .then(html => {
 
-                const parser = new DOMParser();
-                const doc = parser.parseFromString(html, "text/html");
-
-                // Remove unwanted elements
-                doc.querySelectorAll("script, style, noscript").forEach(el => el.remove());
-
-                const cleanText = doc.body.innerText;
+                // Remove scripts/styles manually (since DOMParser not allowed)
+                const cleanText = html
+                    .replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, "")
+                    .replace(/<style[\s\S]*?>[\s\S]*?<\/style>/gi, "")
+                    .replace(/<noscript[\s\S]*?>[\s\S]*?<\/noscript>/gi, "")
+                    .replace(/<[^>]+>/g, " ") // remove all HTML tags
+                    .replace(/\s+/g, " ")
+                    .trim();
 
                 sendResponse({
                     success: true,
@@ -27,6 +28,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                 });
             });
 
-        return true; // required for async response
+        return true; // keep async channel open
     }
 });
