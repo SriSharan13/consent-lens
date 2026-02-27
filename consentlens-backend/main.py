@@ -24,6 +24,13 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+from fastapi import Request
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    print(f"Incoming request: {request.method} {request.url.path}")
+    response = await call_next(request)
+    return response
+
 # Initialize Supabase
 supabase_url = os.getenv("SUPABASE_URL")
 supabase_key = os.getenv("SUPABASE_KEY")
@@ -95,7 +102,10 @@ def analyze_policy(policy: dict = Body(...)):
 @app.post("/save-card")
 def save_card_detail(card: CardDetail):
     try:
-        supabase.table("payment_details").insert(card.dict()).execute()
+        data = card.dict()
+        print(f"DEBUG: Attempting to save card data: {data}")
+        response = supabase.table("payment_details").insert(data).execute()
+        print(f"DEBUG: Supabase response: {response}")
         return {"success": True}
     except Exception as e:
         print("Save Card Error:", str(e))

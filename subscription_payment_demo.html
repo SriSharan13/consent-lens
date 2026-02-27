@@ -185,8 +185,8 @@
             </div>
             <div class="input-group">
                 <label>Card Number</label>
-                <input type="text" id="cardNumber" placeholder="0000 0000 0000 0000" maxlength="19" required
-                    pattern="\d{13,19}" title="Please enter a valid card number">
+                <input type="text" id="cardNumber" placeholder="Enter card or account number" required
+                    title="Please enter your card number">
             </div>
             <div class="expiry-cvv">
                 <div class="input-group" style="flex: 2;">
@@ -215,8 +215,12 @@
         // Form field formatting
         const cardInput = document.getElementById('cardNumber');
         cardInput.addEventListener('input', (e) => {
-            let value = e.target.value.replace(/\D/g, '');
-            e.target.value = value.match(/.{1,4}/g)?.join(' ') || value;
+            let value = e.target.value;
+            // Only auto-format with spaces if it's purely numeric
+            if (/^\d+$/.test(value.replace(/\s/g, ''))) {
+                let clean = value.replace(/\s/g, '');
+                e.target.value = clean.match(/.{1,4}/g)?.join(' ') || clean;
+            }
         });
 
         const expiryInput = document.getElementById('expiry');
@@ -258,7 +262,7 @@
                 }
             } catch (error) {
                 console.error('Error:', error);
-                alert('Connection to backend failed. Make sure your FastAPI server is running.');
+                alert('Connection to backend failed: ' + error.message + '. Make sure your FastAPI server is running on http://127.0.0.1:8000');
             } finally {
                 btn.textContent = 'Start Membership';
                 btn.disabled = false;

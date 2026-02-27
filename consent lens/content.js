@@ -1,53 +1,48 @@
 let consentLensTriggered = false;
 
-window.addEventListener("load", () => {
+// Trigger analysis
+if (document.readyState === "complete") {
     analyzePage();
-});
+} else {
+    window.addEventListener("load", analyzePage);
+}
 
 async function analyzePage() {
-
     if (consentLensTriggered) return;
-    consentLensTriggered = true;
 
     const currentUrl = window.location.href;
-    const isPolicyPage = currentUrl.toLowerCase().includes("privacy") ||
-        currentUrl.toLowerCase().includes("terms") ||
-        currentUrl.toLowerCase().includes("legal") ||
-        currentUrl.toLowerCase().includes("financial") ||
-        currentUrl.toLowerCase().includes("subscription") ||
-        currentUrl.toLowerCase().includes("checkout");
+    const path = currentUrl.toLowerCase();
 
-    console.log("ConsentLens: Checking page...", { isPolicyPage, currentUrl });
+    // Detection keywords for policy/checkout/financial pages
+    const isPolicyPage = path.includes("privacy") ||
+        path.includes("terms") ||
+        path.includes("legal") ||
+        path.includes("financial") ||
+        path.includes("subscription") ||
+        path.includes("checkout") ||
+        path.includes("_demo");
 
-    if (isPolicyPage) {
-        // If we are already on a policy page, extract the text directly
-        const pageText = document.body.innerText;
-        await sendToBackend(pageText, currentUrl);
-        return;
-    }
+    console.log("%c ConsentLens: Analyzing Page... ", "background: #7c5cff; color: white; font-weight: bold;", { isPolicyPage, currentUrl });
 
-    const policyUrl = findPrivacyPolicyLink();
-
-    if (!policyUrl) {
-        console.log("No privacy policy link found.");
-        consentLensTriggered = false;
-        return;
-    }
-
-    chrome.runtime.sendMessage(
-        { action: "fetchPolicy", url: policyUrl },
-        async function (response) {
-
-            if (!response || !response.success) {
-                console.error("Policy fetch failed:", response?.error);
-                consentLensTriggered = false;
-                return;
-            }
-
-            const policyText = response.text;
-            await sendToBackend(policyText, currentUrl);
+    if (!isPolicyPage) {
+        // If not a recognized policy page, look for a link to one
+        const policyUrl = findPrivacyPolicyLink();
+        if (policyUrl) {
+            console.log("ConsentLens: Found policy link, fetching...", policyUrl);
+            chrome.runtime.sendMessage({ action: "fetchPolicy", url: policyUrl }, async (response) => {
+                if (response?.success) {
+                    consentLensTriggered = true;
+                    await sendToBackend(response.text, currentUrl);
+                }
+            });
         }
-    );
+        return;
+    }
+
+    // Direct extraction for recognized pages
+    consentLensTriggered = true;
+    const pageText = document.body.innerText;
+    await sendToBackend(pageText, currentUrl);
 }
 
 async function sendToBackend(text, site_url) {
@@ -85,16 +80,26 @@ function showOverlay(score, decision, reasons, fullData = {}) {
     const overlay = document.createElement("div");
     overlay.id = "consentlens-overlay";
 
+    const highlightKeywords = (text) => {
+        const keywords = ["autopay", "charges", "detected", "automatic", "billing", "renewal", "late fee", "annual fee"];
+        let highlightedText = text;
+        keywords.forEach(word => {
+            const regex = new RegExp(`(${word})`, 'gi');
+            highlightedText = highlightedText.replace(regex, '<span style="color:#ffcc00; font-weight:bold; background:rgba(255,204,0,0.1); padding:0 2px; border-radius:3px;">$1</span>');
+        });
+        return highlightedText;
+    };
+
     const reasonsHTML = reasons && reasons.length
-        ? reasons.map(r => `<li>${r}</li>`).join("")
+        ? reasons.map(r => `<li>${highlightKeywords(r)}</li>`).join("")
         : "<li>No major risks detected</li>";
 
     const riskyClausesHTML = fullData.risky_clauses && fullData.risky_clauses.length
         ? fullData.risky_clauses.map(item => `
             <div style="margin-bottom:12px; padding:10px; background:rgba(255,100,100,0.05); border-radius:8px; border-left:3px solid #ff4d4d;">
                 <div style="font-size:10px; font-weight:800; text-transform:uppercase; color:#ff4d4d; margin-bottom:4px; letter-spacing:0.5px;">Flagged Fragment</div>
-                <div style="font-size:12px; font-style:italic; margin-bottom:6px; color:#aaa; line-height:1.4;">"${item.clause || item.text || ''}"</div>
-                <div style="font-size:12px; color:#eee; font-weight:500;">${item.evidence || item.reason || ''}</div>
+                <div style="font-size:12px; font-style:italic; margin-bottom:6px; color:#aaa; line-height:1.4;">"${highlightKeywords(item.clause || item.text || '')}"</div>
+                <div style="font-size:12px; color:#eee; font-weight:500;">${highlightKeywords(item.evidence || item.reason || '')}</div>
             </div>
         `).join("")
         : "";
@@ -112,6 +117,15 @@ function showOverlay(score, decision, reasons, fullData = {}) {
             <div style="display:flex; justify-content:space-between;"><span>Late Fee:</span> <strong>${fullData.financial_terms.late_fee || 'N/A'}</strong></div>
            </div>`
         : "";
+
+    const isLocalAnalysis = (fullData.summary && fullData.summary.includes("Local analysis")) || !fullData.summary;
+    const analysisModeBadge = `<div style="text-align:center; margin-bottom:10px;"><span style="font-size:9px; color:#666; text-transform:uppercase; letter-spacing:1px; background:rgba(255,255,255,0.03); padding:2px 8px; border-radius:10px;">${isLocalAnalysis ? '📡 Local Analysis (Legacy Mode)' : '🧠 AI Cloud Analysis'}</span></div>`;
+
+    const autopayRisksHTML = fullData.autopay_risks && fullData.autopay_risks.length
+        ? fullData.autopay_risks.map(risk => `<div style="margin-bottom:8px; display:flex; gap:10px; align-items:flex-start;"><span style="color:#ff4d4d;">•</span><span>${highlightKeywords(risk)}</span></div>`).join("")
+        : isLocalAnalysis
+            ? `<div style="color:#888; font-style:italic;">Detailed risks unavailable in local mode. Please check connection.</div>`
+            : `<div style="color:#888;">No critical auto-pay risks detected.</div>`;
 
     overlay.innerHTML = `
         <style>
@@ -173,7 +187,7 @@ function showOverlay(score, decision, reasons, fullData = {}) {
         </style>
 
         <div id="consentlens-card">
-
+            ${analysisModeBadge}
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
                 <div style="display:flex; align-items:center; gap:10px;">
                     <div style="width:10px; height:10px; background:#7c5cff; border-radius:2px;"></div>
@@ -208,6 +222,13 @@ function showOverlay(score, decision, reasons, fullData = {}) {
                 </div>
             </div>
 
+            <div style="margin-top:20px; padding:18px; background:rgba(255,77,77,0.05); border-radius:16px; border:1px solid rgba(255,77,77,0.15);">
+                <strong style="font-size:11px; color:#ff4d4d; text-transform:uppercase; letter-spacing:1.2px; display:block; margin-bottom:12px; font-weight:800;">Further Payment Risks</strong>
+                <div style="font-size:13px; line-height:1.5; color:#eee;">
+                    ${autopayRisksHTML}
+                </div>
+            </div>
+
             ${autopayWarning}
             ${financialInfo}
 
@@ -221,6 +242,15 @@ function showOverlay(score, decision, reasons, fullData = {}) {
                 <ul style="margin:0; padding-left:18px; font-size:13px; color:#ccc; line-height:1.6;">
                     ${reasonsHTML}
                 </ul>
+            </div>
+
+            <div style="margin-top:20px; padding-top:15px; border-top:1px solid rgba(255,255,255,0.05);">
+                <details style="cursor:pointer;">
+                    <summary style="font-size:12px; color:#666; font-weight:600; text-transform:uppercase; letter-spacing:0.5px;">View Analyzed Source</summary>
+                    <div style="margin-top:10px; padding:10px; background:#000; border-radius:8px; font-family:monospace; font-size:10px; color:#0f0; max-height:100px; overflow-y:auto; opacity:0.7;">
+                        ${document.body.innerText.substring(0, 1000)}...
+                    </div>
+                </details>
             </div>
         </div>
     `;

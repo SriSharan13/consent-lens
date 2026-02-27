@@ -1,0 +1,7 @@
+﻿{
+    "score":  0,
+    "decision":  "Unable to Analyze",
+    "reasons":  [
+                    "Policy content insufficient"
+                ]
+}

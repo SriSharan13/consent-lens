@@ -19,6 +19,7 @@ Required JSON Structure:
   "summary": "Short 2-sentence overview",
   "is_financial_product": boolean,
   "autopay_detected": boolean,
+  "autopay_risks": ["list of 2-3 specific risks if autopay is detected, e.g. 'Daily withdrawal attempts noted'"],
   "financial_terms": {{
     "apr": "e.g. 24.99%",
     "annual_fee": "e.g. $95",
@@ -56,7 +57,7 @@ Required JSON Structure:
 Special Instructions:
 1. Detect if this is a Credit Card Agreement or a Subscription Service.
 2. If Credit Card: Extract APR, Annual Fees, and Late Fees.
-3. If Subscription/Auto-pay: Identify if 'automatic renewal' or 'automatic billing' is mentioned. Set "autopay_detected" to true.
+3. If Subscription/Auto-pay: Identify if 'automatic renewal' or 'automatic billing' is mentioned. Set "autopay_detected" to true and provide specific risks in "autopay_risks" (e.g. strict cancellation windows, daily pull attempts).
 4. Adjust safety_score: Deduct points for high APR (>25%), hidden annual fees, or aggressive auto-renewal terms.
 
 

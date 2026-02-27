@@ -1,0 +1,4 @@
+﻿Supabase URL: https://rzbmfoxwjaoisynivmpk.supabase.co
+Checking Supabase connection and table 'payment_details'...
+SUCCESS: Table 'payment_details' exists and is accessible.
+Data sample: []

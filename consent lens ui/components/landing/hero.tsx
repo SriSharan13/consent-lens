@@ -66,11 +66,9 @@ export function Hero() {
         {/* Stats */}
         <motion.div
           variants={fadeUp}
-          className="mt-20 grid grid-cols-3 gap-12"
+          className="mt-20 flex justify-center gap-12"
         >
           {[
-            { value: "10k+", label: "Sites Analyzed" },
-            { value: "99.2%", label: "Accuracy" },
             { value: "<2s", label: "Avg. Scan Time" },
           ].map((stat) => (
             <div key={stat.label} className="flex flex-col items-center gap-1">
