@@ -1,0 +1,19 @@
+ Volume in drive C is OS
+ Volume Serial Number is 4C9B-8D02
+
+ Directory of C:\Users\Sri\Downloads\consent lens zip\consentlens-backend
+
+27-02-2026  09:50    <DIR>          .
+27-02-2026  03:12    <DIR>          ..
+27-02-2026  00:29               332 .env
+27-02-2026  03:47             3,693 ai_engine.py
+27-02-2026  03:46               904 ai_router.py
+27-02-2026  09:50                 0 dir_output.txt
+27-02-2026  03:46             2,516 gemini_engine.py
+27-02-2026  03:47             1,994 main.py
+27-02-2026  09:24                67 requirements.txt
+27-02-2026  09:49    <DIR>          venv
+27-02-2026  09:48                32 version.txt
+27-02-2026  04:03    <DIR>          __pycache__
+               8 File(s)          9,538 bytes
+               4 Dir(s)  72,528,588,800 bytes free

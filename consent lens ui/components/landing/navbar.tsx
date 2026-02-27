@@ -12,8 +12,7 @@ export function Navbar() {
   useEffect(() => {
     const checkBackend = async () => {
       try {
-        const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://127.0.0.1:8000";
-        const res = await fetch(backendUrl);
+        const res = await fetch("http://127.0.0.1:8000/");
         if (res.ok || res.status === 404) {
           // 404 is fine as long as the server responds
           setBackendOnline(true);
