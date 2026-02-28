@@ -37,6 +37,9 @@ Required JSON Structure:
     {{ "legal_text": "text from policy", "real_world_impact": "human-readable consequence" }}
   ],
   "safety_score": 0-100,
+  "score_deductions": [
+    {{ "term": "exact word or short phrase", "impact": -5, "reason": "why this reduced the score" }}
+  ],
   "risky_clauses": [
     {{ "clause": "exact quote", "risk_level": "high/medium", "evidence": "why it is risky" }}
   ],
@@ -57,8 +60,9 @@ Required JSON Structure:
 Special Instructions:
 1. Detect if this is a Credit Card Agreement or a Subscription Service.
 2. If Credit Card: Extract APR, Annual Fees, and Late Fees.
-3. If Subscription/Auto-pay: Identify if 'automatic renewal' or 'automatic billing' is mentioned. Set "autopay_detected" to true and provide specific risks in "autopay_risks" (e.g. strict cancellation windows, daily pull attempts).
-4. Adjust safety_score: Deduct points for high APR (>25%), hidden annual fees, or aggressive auto-renewal terms.
+3. If Subscription/Auto-pay: Identify if 'automatic renewal' or 'automatic billing' is mentioned. Set "autopay_detected" to true and provide specific risks in "autopay_risks".
+4. Calculate safety_score: Start at 100. Deduct points for high APR (>25%), hidden fees, aggressive auto-renewal terms, data selling, tracking pixels, or vague legal language. 
+5. For EVERY deduction, add an entry to the "score_deductions" array containing the exact term/phrase, the negative impact on the score, and a brief reason. The safety_score should roughly equal 100 plus the sum of all impacts.
 
 
 Privacy Policy Text:
@@ -66,7 +70,7 @@ Privacy Policy Text:
 """
 
     response = client.models.generate_content(
-        model="gemini-2.0-flash",
+        model="gemini-2.5-flash",
         contents=prompt,
     )
 

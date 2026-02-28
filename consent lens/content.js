@@ -94,15 +94,7 @@ function showOverlay(score, decision, reasons, fullData = {}) {
         ? reasons.map(r => `<li>${highlightKeywords(r)}</li>`).join("")
         : "<li>No major risks detected</li>";
 
-    const riskyClausesHTML = fullData.risky_clauses && fullData.risky_clauses.length
-        ? fullData.risky_clauses.map(item => `
-            <div style="margin-bottom:12px; padding:10px; background:rgba(255,100,100,0.05); border-radius:8px; border-left:3px solid #ff4d4d;">
-                <div style="font-size:10px; font-weight:800; text-transform:uppercase; color:#ff4d4d; margin-bottom:4px; letter-spacing:0.5px;">Flagged Fragment</div>
-                <div style="font-size:12px; font-style:italic; margin-bottom:6px; color:#aaa; line-height:1.4;">"${highlightKeywords(item.clause || item.text || '')}"</div>
-                <div style="font-size:12px; color:#eee; font-weight:500;">${highlightKeywords(item.evidence || item.reason || '')}</div>
-            </div>
-        `).join("")
-        : "";
+
 
     const autopayWarning = fullData.autopay_detected
         ? `<div style="margin-top:15px; padding:12px; background:rgba(255,100,100,0.1); border:1px solid rgba(255,100,100,0.3); border-radius:12px; color:#ff8080; font-size:13px;">
@@ -127,6 +119,21 @@ function showOverlay(score, decision, reasons, fullData = {}) {
             ? `<div style="color:#888; font-style:italic;">Detailed risks unavailable in local mode. Please check connection.</div>`
             : `<div style="color:#888;">No critical auto-pay risks detected.</div>`;
 
+    const scoreDeductionsHTML = fullData.score_deductions && fullData.score_deductions.length
+        ? `<div style="margin-top:20px; padding-top:15px; border-top:1px solid rgba(255,255,255,0.05);">
+            <strong style="font-size:13px; color:#888; display:block; margin-bottom:8px;">Terms Impacting Score:</strong>
+            ${fullData.score_deductions.map(item => `
+                <div style="display:flex; justify-content:space-between; margin-bottom:6px; background:rgba(255,77,77,0.05); padding:8px; border-radius:6px; border-left:2px solid #ff4d4d; align-items:center;">
+                    <div>
+                        <div style="font-size:12px; font-weight:700; color:#ff4d4d;">"${item.term}"</div>
+                        <div style="font-size:11px; color:#aaa; margin-top:2px;">${item.reason}</div>
+                    </div>
+                    <div style="font-size:14px; font-weight:bold; color:#ff4d4d; margin-left:10px;">${item.impact > 0 ? '-' : ''}${Math.abs(item.impact)}</div>
+                </div>
+            `).join("")}
+           </div>`
+        : "";
+
     overlay.innerHTML = `
         <style>
             #consentlens-card {
@@ -134,6 +141,8 @@ function showOverlay(score, decision, reasons, fullData = {}) {
                 bottom: -800px;
                 right: 30px;
                 width: 420px;
+                max-height: 85vh;
+                overflow-y: auto;
                 padding: 24px;
                 border-radius: 24px;
                 font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', sans-serif;
@@ -146,6 +155,22 @@ function showOverlay(score, decision, reasons, fullData = {}) {
                 box-shadow: 
                     0 20px 50px rgba(0,0,0,0.5),
                     0 0 60px rgba(124,92,255,0.1);
+            }
+
+            #consentlens-card::-webkit-scrollbar {
+                width: 6px;
+            }
+            #consentlens-card::-webkit-scrollbar-track {
+                background: transparent;
+                border-radius: 10px;
+                margin: 20px 0;
+            }
+            #consentlens-card::-webkit-scrollbar-thumb {
+                background: rgba(255,255,255,0.15);
+                border-radius: 10px;
+            }
+            #consentlens-card::-webkit-scrollbar-thumb:hover {
+                background: rgba(255,255,255,0.25);
             }
 
             #consentlens-card h3 {
@@ -231,11 +256,9 @@ function showOverlay(score, decision, reasons, fullData = {}) {
 
             ${autopayWarning}
             ${financialInfo}
+            
+            ${scoreDeductionsHTML}
 
-            <div style="margin-top:20px; padding-top:15px; border-top:1px solid rgba(255,255,255,0.05);">
-                <strong style="font-size:13px; color:#888; display:block; margin-bottom:10px;">Critical Fragments:</strong>
-                ${riskyClausesHTML}
-            </div>
 
             <div style="margin-top:15px; padding-top:15px; border-top:1px solid rgba(255,255,255,0.05);">
                 <strong style="font-size:13px; color:#888; display:block; margin-bottom:8px;">Key Insights:</strong>
@@ -244,14 +267,7 @@ function showOverlay(score, decision, reasons, fullData = {}) {
                 </ul>
             </div>
 
-            <div style="margin-top:20px; padding-top:15px; border-top:1px solid rgba(255,255,255,0.05);">
-                <details style="cursor:pointer;">
-                    <summary style="font-size:12px; color:#666; font-weight:600; text-transform:uppercase; letter-spacing:0.5px;">View Analyzed Source</summary>
-                    <div style="margin-top:10px; padding:10px; background:#000; border-radius:8px; font-family:monospace; font-size:10px; color:#0f0; max-height:100px; overflow-y:auto; opacity:0.7;">
-                        ${document.body.innerText.substring(0, 1000)}...
-                    </div>
-                </details>
-            </div>
+
         </div>
     `;
 

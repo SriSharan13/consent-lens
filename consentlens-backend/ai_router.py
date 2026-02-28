@@ -13,6 +13,7 @@ def analyze_policy_with_ai(text: str):
             "categories",
             "impact_translations",
             "safety_score",
+            "score_deductions",
             "risky_clauses",
             "what_if_simulator",
             "dark_patterns",

@@ -54,9 +54,14 @@ def analyze_policy(policy: dict = Body(...)):
 
     ai_result = analyze_policy_with_ai(text)
 
-    # Use AI provided safety score or fallback to 100
-    score = ai_result.get("safety_score", 100)
-    score = max(0, min(score, 100))
+    # Force calculate safety score mathematically to guarantee it starts at 100
+    # and handles deductions perfectly.
+    deductions = ai_result.get("score_deductions", [])
+    total_deductions = sum(abs(d.get("impact", 0)) for d in deductions)
+    raw_score = 100 - total_deductions
+    
+    score = max(0, min(raw_score, 100))
+    ai_result["safety_score"] = score # Sync so UI and DB match the corrected math
 
     if score >= 70:
         decision = "Proceed Safely"

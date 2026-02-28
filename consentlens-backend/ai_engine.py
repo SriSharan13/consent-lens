@@ -13,22 +13,35 @@ def classify_policy(text: str):
 
     reasons = []
 
-    for sentence in sentences:
+    score_deductions = []
 
+    for sentence in sentences:
         if any(word in sentence for word in ["biometric", "location", "financial", "tracking", "device information"]):
             data_collection_score += 1
+            if len(score_deductions) < 5 and not any(d["term"] in sentence for d in score_deductions):
+                term_found = next(word for word in ["biometric", "location", "financial", "tracking", "device information"] if word in sentence)
+                score_deductions.append({"term": term_found, "impact": -5, "reason": "Mentions sensitive data collection"})
 
         if any(word in sentence for word in ["third party", "advertiser", "partners", "affiliates", "data brokers"]):
             third_party_score += 1
+            if len(score_deductions) < 5 and not any(d["term"] in sentence for d in score_deductions):
+                term_found = next(word for word in ["third party", "advertiser", "partners", "affiliates", "data brokers"] if word in sentence)
+                score_deductions.append({"term": term_found, "impact": -5, "reason": "Sells or shares data to third parties"})
 
         if any(word in sentence for word in ["indefinite", "retain indefinitely", "no time limit"]):
             retention_score += 1
+            if len(score_deductions) < 5 and not any(d["term"] in sentence for d in score_deductions):
+                term_found = next(word for word in ["indefinite", "retain indefinitely", "no time limit"] if word in sentence)
+                score_deductions.append({"term": term_found, "impact": -5, "reason": "Keeps your data indefinitely"})
 
         if any(word in sentence for word in ["encrypt", "security measures", "protected", "safeguards"]):
             security_score += 1
 
         if any(word in sentence for word in ["by continuing", "automatically agree", "without notice", "may share"]):
             dark_pattern_flag = True
+            if not any(d["term"] == "automatically agree" for d in score_deductions):
+               term_found = next(word for word in ["by continuing", "automatically agree", "without notice", "may share"] if word in sentence)
+               score_deductions.append({"term": term_found, "impact": -10, "reason": "Implied auto-consent tracking"})
 
     def severity(score):
         if score >= 3:
@@ -68,6 +81,7 @@ def classify_policy(text: str):
             { "legal_text": "May share with affiliates", "real_world_impact": "Your data might be used for cross-platform marketing." }
         ],
         "safety_score": 100 - (data_collection_score * 10 + third_party_score * 10 + (20 if dark_pattern_flag else 0)),
+        "score_deductions": score_deductions,
         "risky_clauses": [],
         "what_if_simulator": [
             { "permission": "Tracking", "if_rejected": "May limit personalized content." }
